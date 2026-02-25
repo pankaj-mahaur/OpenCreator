@@ -25,6 +25,14 @@ _*.txt
 _*.py
 _*.json
 
+# Old scripts
+install_indextts.ps1
+start_miotts.ps1
+setup.bat
+
+# Voice samples (personal audio)
+voice_samples/
+
 # OS
 Thumbs.db
 .DS_Store

@@ -1,106 +1,86 @@
-# 🎬 Sovereign Instagram Content Agent
+# 🎬 OpenCreator
 
-**Fully automated Instagram Reels pipeline — research, script, voice clone, AI avatar, edit, publish.**
+Automated AI video content pipeline — from topic to finished reel.
 
-100% local. Zero recurring cost. Runs on your RTX 3050 4GB.
+**Research → Script → Voice → Video → Edit**
+
+## What It Does
+
+1. **Research** — Searches DuckDuckGo and scrapes top results
+2. **Script** — Generates viral-format scripts via Ollama (local LLM)
+3. **Voice** — Edge TTS (free) or F5-TTS voice cloning via FAL.ai
+4. **Video** — Generates talking-head video via FAL.ai API (Kling 1.6 / Wan 2.1 / MiniMax)
+5. **Edit** — FFmpeg compositing with karaoke-style captions
 
 ## Quick Start
 
 ```bash
-# 1. Clone and install
+# Clone
+git clone git@github.com:pankaj-mahaur/OpenCreator.git
+cd OpenCreator
+
+# Install
 pip install -r requirements.txt
 
-# 2. Copy env template
-copy .env.example .env
-# Edit .env with your settings
+# Configure
+cp .env.example .env
+# Edit .env — add your FAL_API_KEY
 
-# 3. Install Ollama + model
-# Download from https://ollama.com
-ollama pull llama3.2:3b
+# Run via CLI
+python main.py --topic "Why AI will change everything"
 
-# 4. Setup assets
-# - Record 5s+ voice sample → voice_samples/my_voice.wav
-# - Take front-facing photo  → assets/my_photo.png
-
-# 5. Install TTS engines
-pip install git+https://github.com/SWivid/F5-TTS.git
-pip install TTS
-
-# 6. Clone third-party models
-mkdir third_party
-cd third_party
-git clone https://github.com/OpenTalker/SadTalker.git
-git clone https://github.com/KwaiVGI/LivePortrait.git
-git clone https://github.com/sczhou/CodeFormer.git
-cd ..
-
-# 6. Run!
-python main.py --topic "Latest AI tools" --dry-run
+# Or start the Web UI
+python main.py --serve
+# Open http://127.0.0.1:8501
 ```
 
-## Usage
+## Requirements
+
+- Python 3.10+
+- [Ollama](https://ollama.ai) running locally (`ollama serve`)
+- [FFmpeg](https://ffmpeg.org) installed and in PATH
+- FAL.ai API key (for video generation) — [get one here](https://fal.ai)
+- Avatar photo at `assets/my_photo.png`
+
+## CLI Usage
 
 ```bash
-# Full pipeline (dry run — no publish)
-python main.py --topic "Why AI will change everything" --dry-run
-
-# Test individual steps
-python main.py --topic "Test" --step research
-python main.py --topic "Test" --step script
-python main.py --topic "Test" --step voice
-
-# Launch dashboard
-streamlit run dashboard/app.py
-
-# List all runs
-python main.py --list
-
-# Approve and publish a run
-python main.py --approve <run_id>
+python main.py --topic "AI news"                  # Full pipeline
+python main.py --topic "AI news" --dry-run         # Skip publish
+python main.py --topic "AI news" --model wan       # Use Wan 2.1
+python main.py --list                              # List all runs
+python main.py --serve                             # Start web UI
 ```
 
-## Pipeline
+## Configuration (.env)
+
+| Variable | Description | Default |
+|---|---|---|
+| `FAL_API_KEY` | FAL.ai API key (required for video gen) | — |
+| `OLLAMA_MODEL` | Ollama model for script writing | `llama3.2:1b` |
+| `EDGE_TTS_VOICE` | Microsoft Edge TTS voice | `en-US-ChristopherNeural` |
+| `VIDEO_GEN_MODEL` | Video model: `kling-1.6`, `wan`, `minimax` | `kling-1.6` |
+| `VOICE_CLONING` | Enable F5-TTS voice cloning | `false` |
+| `AVATAR_PHOTO_PATH` | Path to avatar image | `assets/my_photo.png` |
+
+## Project Structure
 
 ```
-Topic → 🔍 Research (DuckDuckGo)
-      → 📝 Script  (Ollama Llama 3.2)
-      → 🎙️ Voice   (F5-TTS / XTTS-v2)
-      → 🎭 Motion  (SadTalker → proxy)
-      → 🖼️ Avatar  (LivePortrait → retarget)
-      → 🔧 Restore (CodeFormer → fix)
-      → 🎬 Edit    (Whisper captions + MoviePy)
-      → 👤 Review  (Streamlit dashboard)
-      → 📱 Publish (Instagrapi stealth)
+├── main.py              # CLI entry point
+├── config.py            # Central configuration
+├── orchestrator.py      # Pipeline coordinator
+├── modules/
+│   ├── researcher.py    # DuckDuckGo research
+│   ├── scriptwriter.py  # LLM script generation
+│   ├── voice_cloner.py  # TTS (Edge/F5-TTS)
+│   ├── video_generator.py  # FAL.ai video API
+│   └── video_editor.py  # FFmpeg editing + captions
+├── dashboard/
+│   ├── app.py           # Flask web backend
+│   └── templates/
+│       └── index.html   # Web UI
+└── .env.example         # Config template
 ```
-
-## VRAM Tetris
-
-Each step runs sequentially with GPU cleanup between steps.
-A 4GB GPU can run a pipeline that needs ~20GB total:
-
-| Step | Model | VRAM |
-|--|--|--|
-| Script | Llama 3.2 3B | ~2.5GB |
-| Voice | F5-TTS (primary) / XTTS-v2 | ~3GB / ~4-6GB |
-| Motion | SadTalker | ~3GB |
-| Avatar | LivePortrait (fp16) | ~4GB |
-| Restore | CodeFormer | ~2GB |
-| Captions | faster-whisper | ~1.5GB |
-
-## Tech Stack
-
-|  | Tool | Cost |
-|--|--|--|
-| 🔍 | DuckDuckGo + BeautifulSoup | Free |
-| 🧠 | Ollama + Llama 3.2 3B | Free |
-| 🎙️ | F5-TTS + XTTS-v2 | Free |
-| 🎭 | SadTalker | Free |
-| 🖼️ | LivePortrait | Free |
-| 🔧 | CodeFormer | Free |
-| 📝 | faster-whisper | Free |
-| 🎬 | MoviePy + FFmpeg | Free |
-| 📊 | Streamlit | Free |
-| 📱 | Instagrapi | Free |
 
 ## License
 
