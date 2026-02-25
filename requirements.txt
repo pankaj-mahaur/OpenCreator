@@ -1,0 +1,19 @@
+# Core
+requests>=2.31
+beautifulsoup4>=4.12
+python-dotenv>=1.0
+httpx>=0.27
+rich>=13.0
+ollama>=0.3
+
+# Voice
+edge-tts>=6.1
+
+# Captions
+faster-whisper>=1.0
+
+# Web UI
+flask>=3.0
+
+# Search
+duckduckgo-search>=5.0

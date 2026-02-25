@@ -1,0 +1,62 @@
+"""
+config.py — Central configuration for the Social Media Content Automation pipeline.
+
+Loads all settings from .env, provides defaults, and exposes
+typed configuration to every module.
+"""
+
+import os
+from pathlib import Path
+from dotenv import load_dotenv
+
+# ── Load .env ──────────────────────────────────────────────
+load_dotenv()
+
+# ── Paths ──────────────────────────────────────────────────
+ROOT_DIR = Path(__file__).parent
+OUTPUT_DIR = ROOT_DIR / "output"
+ASSETS_DIR = ROOT_DIR / "assets"
+VOICE_SAMPLES_DIR = ROOT_DIR / "voice_samples"
+SESSIONS_DIR = ROOT_DIR / "sessions"
+
+# Ensure dirs exist
+for d in [OUTPUT_DIR, ASSETS_DIR, VOICE_SAMPLES_DIR, SESSIONS_DIR]:
+    d.mkdir(exist_ok=True)
+
+# ── LLM ────────────────────────────────────────────────────
+LLM_PROVIDER = os.getenv("LLM_PROVIDER", "ollama")  # "ollama" or "openai"
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.2:3b")
+OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
+OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o")
+
+# ── Voice (Edge TTS — free, zero setup) ───────────────────
+VOICE_MODEL_TYPE = os.getenv("VOICE_MODEL_TYPE", "edge")  # "edge" only for now
+EDGE_TTS_VOICE = os.getenv("EDGE_TTS_VOICE", "en-US-ChristopherNeural")  # Male voice
+
+# ── Video Generation (FAL.ai API) ─────────────────────────
+FAL_API_KEY = os.getenv("FAL_API_KEY", "")
+VIDEO_GEN_MODEL = os.getenv("VIDEO_GEN_MODEL", "kling-1.6")  # kling-1.6, wan, minimax
+AVATAR_PHOTO_PATH = Path(os.getenv("AVATAR_PHOTO_PATH", "assets/my_photo.png"))
+
+# ── B-Roll ─────────────────────────────────────────────────
+PEXELS_API_KEY = os.getenv("PEXELS_API_KEY", "")
+
+# ── Instagram (for future use) ────────────────────────────
+IG_USERNAME = os.getenv("IG_USERNAME", "")
+IG_PASSWORD = os.getenv("IG_PASSWORD", "")
+IG_SESSION_PATH = Path(os.getenv("IG_SESSION_PATH", "sessions/session.json"))
+
+# ── Web UI ─────────────────────────────────────────────────
+WEB_HOST = os.getenv("WEB_HOST", "127.0.0.1")
+WEB_PORT = int(os.getenv("WEB_PORT", "8501"))
+
+# ── Video Settings ─────────────────────────────────────────
+VIDEO_WIDTH = 1080
+VIDEO_HEIGHT = 1920
+VIDEO_FPS = 30
+
+# ── Content Settings ───────────────────────────────────────
+MAX_SCRIPT_DURATION = 90    # seconds
+MIN_SCRIPT_DURATION = 30    # seconds
+TARGET_SCRIPT_DURATION = 60 # seconds

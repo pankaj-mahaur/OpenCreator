@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Content Automation</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #0f0f0f;
+            color: #e0e0e0;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 24px;
+        }
+
+        /* ── Header ─────────────────────────── */
+        header {
+            text-align: center;
+            padding: 32px 0 24px;
+            border-bottom: 1px solid #222;
+            margin-bottom: 32px;
+        }
+        header h1 {
+            font-size: 24px;
+            font-weight: 600;
+            color: #fff;
+        }
+        header p {
+            color: #888;
+            margin-top: 6px;
+            font-size: 14px;
+        }
+
+        /* ── Generate Form ──────────────────── */
+        .generate-section {
+            background: #1a1a1a;
+            border: 1px solid #2a2a2a;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 24px;
+        }
+        .generate-section h2 {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            color: #fff;
+        }
+
+        .form-group {
+            margin-bottom: 14px;
+        }
+        .form-group label {
+            display: block;
+            font-size: 13px;
+            color: #999;
+            margin-bottom: 6px;
+            font-weight: 500;
+        }
+
+        input[type="text"], select {
+            width: 100%;
+            padding: 10px 14px;
+            background: #111;
+            border: 1px solid #333;
+            border-radius: 8px;
+            color: #fff;
+            font-size: 14px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        input[type="text"]:focus, select:focus {
+            border-color: #4a9eff;
+        }
+        select {
+            cursor: pointer;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .btn {
+            padding: 10px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-primary {
+            background: #4a9eff;
+            color: #fff;
+            width: 100%;
+            margin-top: 8px;
+        }
+        .btn-primary:hover { background: #3a8eef; }
+        .btn-primary:disabled {
+            background: #333;
+            color: #666;
+            cursor: not-allowed;
+        }
+        .btn-download {
+            background: #2a2a2a;
+            color: #4a9eff;
+            border: 1px solid #333;
+            margin-top: 12px;
+            text-decoration: none;
+            display: inline-block;
+        }
+        .btn-download:hover {
+            background: #333;
+        }
+
+        /* ── Progress ───────────────────────── */
+        .progress-section {
+            background: #1a1a1a;
+            border: 1px solid #2a2a2a;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 24px;
+            display: none;
+        }
+        .progress-section.active { display: block; }
+
+        .progress-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+        .progress-header h2 {
+            font-size: 16px;
+            font-weight: 600;
+            color: #fff;
+        }
+        .progress-status {
+            font-size: 13px;
+            color: #4a9eff;
+            font-weight: 500;
+        }
+
+        .progress-bar-bg {
+            width: 100%;
+            height: 8px;
+            background: #222;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 12px;
+        }
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #4a9eff, #7b61ff);
+            border-radius: 4px;
+            transition: width 0.5s ease;
+            width: 0%;
+        }
+
+        .progress-step {
+            font-size: 13px;
+            color: #888;
+        }
+
+        .pipeline-steps {
+            display: flex;
+            gap: 4px;
+            margin-top: 16px;
+        }
+        .step-dot {
+            flex: 1;
+            height: 4px;
+            background: #222;
+            border-radius: 2px;
+            transition: background 0.3s;
+        }
+        .step-dot.done { background: #4a9eff; }
+        .step-dot.active { background: #7b61ff; animation: pulse 1s infinite; }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        /* ── Error ──────────────────────────── */
+        .error-box {
+            background: #2a1515;
+            border: 1px solid #4a2020;
+            border-radius: 8px;
+            padding: 14px;
+            margin-top: 12px;
+            color: #ff6b6b;
+            font-size: 13px;
+            display: none;
+        }
+        .error-box.show { display: block; }
+
+        /* ── Video Output ───────────────────── */
+        .video-section {
+            background: #1a1a1a;
+            border: 1px solid #2a2a2a;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 24px;
+            display: none;
+        }
+        .video-section.active { display: block; }
+        .video-section h2 {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            color: #fff;
+        }
+        .video-output {
+            display: flex;
+            gap: 24px;
+            align-items: flex-start;
+        }
+        .video-player-wrap {
+            flex-shrink: 0;
+        }
+        .video-player-wrap video {
+            width: 270px;
+            border-radius: 8px;
+            background: #000;
+        }
+        .video-details {
+            flex: 1;
+            min-width: 0;
+        }
+        .video-details h3 {
+            font-size: 15px;
+            font-weight: 600;
+            color: #fff;
+            margin-bottom: 10px;
+            line-height: 1.4;
+        }
+        .video-detail-row {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 6px;
+            font-size: 13px;
+        }
+        .video-detail-row .label {
+            color: #666;
+            min-width: 60px;
+            flex-shrink: 0;
+        }
+        .video-detail-row .value {
+            color: #ccc;
+            word-break: break-all;
+        }
+        .video-path {
+            background: #111;
+            border: 1px solid #222;
+            border-radius: 6px;
+            padding: 8px 12px;
+            font-size: 12px;
+            color: #888;
+            margin-top: 10px;
+            font-family: monospace;
+            word-break: break-all;
+        }
+
+        /* ── History ────────────────────────── */
+        .history-section {
+            background: #1a1a1a;
+            border: 1px solid #2a2a2a;
+            border-radius: 12px;
+            padding: 24px;
+        }
+        .history-section h2 {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            color: #fff;
+        }
+
+        .runs-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .runs-table th {
+            text-align: left;
+            font-size: 12px;
+            color: #666;
+            font-weight: 500;
+            padding: 8px 12px;
+            border-bottom: 1px solid #222;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .runs-table td {
+            padding: 10px 12px;
+            font-size: 13px;
+            border-bottom: 1px solid #1a1a1a;
+        }
+        .runs-table tr:hover td {
+            background: #222;
+        }
+        .runs-table tr { cursor: pointer; }
+
+        .status-badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        .status-badge.running { background: #2a2a00; color: #ffcc00; }
+        .status-badge.review { background: #0a2a0a; color: #4caf50; }
+        .status-badge.failed { background: #2a0a0a; color: #ff5252; }
+        .status-badge.pending { background: #1a1a1a; color: #666; }
+
+        .empty-state {
+            text-align: center;
+            padding: 32px;
+            color: #555;
+            font-size: 14px;
+        }
+
+        @media (max-width: 600px) {
+            .form-row { grid-template-columns: 1fr; }
+            .video-output { flex-direction: column; }
+            .video-player-wrap video { width: 100%; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🎬 Content Automation</h1>
+            <p>Research → Script → Voice Clone → Video → Edit</p>
+        </header>
+
+        <!-- Generate Form -->
+        <div class="generate-section">
+            <h2>New Video</h2>
+            <div class="form-group">
+                <label>Topic</label>
+                <input type="text" id="topic" placeholder="e.g. Why AI will change everything in 2026" autofocus>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Video Model</label>
+                    <select id="model">
+                        <option value="kling-1.6">Kling 1.6 (Standard)</option>
+                        <option value="wan">Wan 2.1</option>
+                        <option value="minimax">MiniMax Hailuo</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Voice (fallback if no sample)</label>
+                    <select id="voice">
+                        <option value="en-US-ChristopherNeural">Christopher (US Male)</option>
+                        <option value="en-US-GuyNeural">Guy (US Male)</option>
+                        <option value="en-US-JennyNeural">Jenny (US Female)</option>
+                        <option value="en-US-AriaNeural">Aria (US Female)</option>
+                        <option value="en-GB-RyanNeural">Ryan (UK Male)</option>
+                        <option value="en-IN-PrabhatNeural">Prabhat (IN Male)</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-group" style="margin-top: 4px;">
+                <label style="font-size: 12px; color: #555;">
+                    🎯 Voice cloning is ON — uses your voice sample from <code style="color:#888">voice_samples/my_voice.wav</code>
+                </label>
+            </div>
+            <button class="btn btn-primary" id="generateBtn" onclick="startGenerate()">
+                Generate Video
+            </button>
+        </div>
+
+        <!-- Progress -->
+        <div class="progress-section" id="progressSection">
+            <div class="progress-header">
+                <h2>Pipeline Running</h2>
+                <span class="progress-status" id="progressPct">0%</span>
+            </div>
+            <div class="progress-bar-bg">
+                <div class="progress-bar" id="progressBar"></div>
+            </div>
+            <div class="progress-step" id="progressStep">Starting...</div>
+            <div class="pipeline-steps">
+                <div class="step-dot" id="stepResearch"></div>
+                <div class="step-dot" id="stepScript"></div>
+                <div class="step-dot" id="stepVoice"></div>
+                <div class="step-dot" id="stepVideo"></div>
+                <div class="step-dot" id="stepEdit"></div>
+            </div>
+            <div class="error-box" id="errorBox"></div>
+        </div>
+
+        <!-- Video Output -->
+        <div class="video-section" id="videoSection">
+            <h2>✅ Video Ready</h2>
+            <div class="video-output">
+                <div class="video-player-wrap">
+                    <video id="videoPlayer" controls></video>
+                </div>
+                <div class="video-details">
+                    <h3 id="videoTitle">—</h3>
+                    <div class="video-detail-row">
+                        <span class="label">Topic</span>
+                        <span class="value" id="videoTopic">—</span>
+                    </div>
+                    <div class="video-detail-row">
+                        <span class="label">Run ID</span>
+                        <span class="value" id="videoRunId">—</span>
+                    </div>
+                    <div class="video-detail-row">
+                        <span class="label">Status</span>
+                        <span class="value"><span class="status-badge review">Complete</span></span>
+                    </div>
+                    <div class="video-path" id="videoPath">—</div>
+                    <a class="btn btn-download" id="downloadBtn" href="#" download>
+                        ⬇ Download Video
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- History -->
+        <div class="history-section">
+            <h2>History</h2>
+            <div id="historyContent">
+                <div class="empty-state">No runs yet</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentRunId = null;
+        let pollInterval = null;
+
+        // ── Generate ──────────────────────────────────
+        async function startGenerate() {
+            const topic = document.getElementById('topic').value.trim();
+            if (!topic) {
+                document.getElementById('topic').focus();
+                return;
+            }
+
+            const model = document.getElementById('model').value;
+            const voice = document.getElementById('voice').value;
+
+            const btn = document.getElementById('generateBtn');
+            btn.disabled = true;
+            btn.textContent = 'Starting...';
+
+            const progress = document.getElementById('progressSection');
+            progress.classList.add('active');
+            document.getElementById('videoSection').classList.remove('active');
+            document.getElementById('errorBox').classList.remove('show');
+            resetStepDots();
+
+            try {
+                const resp = await fetch('/api/generate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ topic, model, voice }),
+                });
+                const data = await resp.json();
+
+                if (data.error) {
+                    showError(data.error);
+                    btn.disabled = false;
+                    btn.textContent = 'Generate Video';
+                    return;
+                }
+
+                currentRunId = data.run_id;
+                startPolling();
+
+            } catch (err) {
+                showError('Failed to start pipeline: ' + err.message);
+                btn.disabled = false;
+                btn.textContent = 'Generate Video';
+            }
+        }
+
+        // ── Polling ───────────────────────────────────
+        function startPolling() {
+            if (pollInterval) clearInterval(pollInterval);
+            pollInterval = setInterval(pollStatus, 2000);
+        }
+
+        async function pollStatus() {
+            if (!currentRunId) return;
+
+            try {
+                const resp = await fetch(`/api/status/${currentRunId}`);
+                const data = await resp.json();
+
+                if (data.error && resp.status === 404) return;
+
+                if (data.real_id && data.real_id !== currentRunId) {
+                    currentRunId = data.real_id;
+                }
+
+                updateProgress(data);
+
+                if (data.status === 'review' || data.status === 'failed') {
+                    clearInterval(pollInterval);
+                    pollInterval = null;
+
+                    const btn = document.getElementById('generateBtn');
+                    btn.disabled = false;
+                    btn.textContent = 'Generate Video';
+
+                    if (data.status === 'review') {
+                        showVideo(data);
+                    } else if (data.status === 'failed') {
+                        showError(data.error || 'Pipeline failed');
+                    }
+                    
+                    loadHistory();
+                }
+            } catch (err) {
+                console.error('Poll error:', err);
+            }
+        }
+
+        function updateProgress(data) {
+            const pct = Math.round((data.progress || 0) * 100);
+            document.getElementById('progressPct').textContent = pct + '%';
+            document.getElementById('progressBar').style.width = pct + '%';
+
+            const stepMap = {
+                'research': '🔍 Researching topic...',
+                'script': '📝 Writing script...',
+                'voice': '🎙️ Cloning voice & generating speech...',
+                'video_gen': '🎬 Generating video (API)...',
+                'edit': '✂️ Editing & adding captions...',
+                'done': '✅ Complete!',
+                'starting': '⏳ Starting...',
+            };
+            const step = data.current_step || 'starting';
+            document.getElementById('progressStep').textContent = stepMap[step] || step;
+
+            const steps = ['research', 'script', 'voice', 'video_gen', 'edit'];
+            const stepIds = ['stepResearch', 'stepScript', 'stepVoice', 'stepVideo', 'stepEdit'];
+            const currentIdx = steps.indexOf(step);
+
+            stepIds.forEach((id, i) => {
+                const dot = document.getElementById(id);
+                dot.className = 'step-dot';
+                if (i < currentIdx) dot.classList.add('done');
+                else if (i === currentIdx) dot.classList.add('active');
+            });
+        }
+
+        // ── Video Output ──────────────────────────────
+        function showVideo(data) {
+            const section = document.getElementById('videoSection');
+            section.classList.add('active');
+
+            // Hide progress
+            document.getElementById('progressSection').classList.remove('active');
+
+            const videoId = data.real_id || data.id || currentRunId;
+
+            // Video player
+            const player = document.getElementById('videoPlayer');
+            player.src = `/api/video/${videoId}`;
+
+            // Details
+            document.getElementById('videoTitle').textContent = data.script_title || 'Untitled';
+            document.getElementById('videoTopic').textContent = data.topic || '—';
+            document.getElementById('videoRunId').textContent = videoId;
+
+            // File path
+            const filePath = data.final_video_path || `output/${videoId}/final.mp4`;
+            document.getElementById('videoPath').textContent = '📁 ' + filePath;
+
+            // Download link
+            const downloadBtn = document.getElementById('downloadBtn');
+            downloadBtn.href = `/api/video/${videoId}`;
+            downloadBtn.download = `${videoId}_final.mp4`;
+
+            // Scroll to output
+            section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        // ── Error ─────────────────────────────────────
+        function showError(msg) {
+            const box = document.getElementById('errorBox');
+            box.textContent = '❌ ' + msg;
+            box.classList.add('show');
+        }
+
+        function resetStepDots() {
+            ['stepResearch', 'stepScript', 'stepVoice', 'stepVideo', 'stepEdit'].forEach(id => {
+                document.getElementById(id).className = 'step-dot';
+            });
+            document.getElementById('progressBar').style.width = '0%';
+            document.getElementById('progressPct').textContent = '0%';
+            document.getElementById('progressStep').textContent = 'Starting...';
+        }
+
+        // ── History ───────────────────────────────────
+        async function loadHistory() {
+            try {
+                const resp = await fetch('/api/runs');
+                const runs = await resp.json();
+
+                const container = document.getElementById('historyContent');
+
+                if (!runs.length) {
+                    container.innerHTML = '<div class="empty-state">No runs yet</div>';
+                    return;
+                }
+
+                let html = `<table class="runs-table">
+                    <thead><tr>
+                        <th>Topic</th>
+                        <th>Status</th>
+                        <th>Created</th>
+                    </tr></thead><tbody>`;
+
+                runs.forEach(run => {
+                    const date = run.created_at ? new Date(run.created_at).toLocaleString() : '-';
+                    html += `<tr onclick="viewRun('${run.id}')">
+                        <td>${escapeHtml(run.topic || '-')}</td>
+                        <td><span class="status-badge ${run.status}">${run.status}</span></td>
+                        <td>${date}</td>
+                    </tr>`;
+                });
+
+                html += '</tbody></table>';
+                container.innerHTML = html;
+            } catch (err) {
+                console.error('History load error:', err);
+            }
+        }
+
+        // View a past run's video
+        async function viewRun(runId) {
+            try {
+                const resp = await fetch(`/api/status/${runId}`);
+                const data = await resp.json();
+                if (data.status === 'review' && data.final_video_path) {
+                    currentRunId = runId;
+                    showVideo(data);
+                }
+            } catch (err) {
+                console.error('View run error:', err);
+            }
+        }
+
+        function escapeHtml(str) {
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
+
+        // ── Init ──────────────────────────────────────
+        document.getElementById('topic').addEventListener('keydown', e => {
+            if (e.key === 'Enter') startGenerate();
+        });
+
+        loadHistory();
+    </script>
+</body>
+</html>
