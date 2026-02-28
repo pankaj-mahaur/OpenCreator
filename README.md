@@ -8,7 +8,7 @@ Automated AI video content pipeline — from topic to finished reel.
 
 1. **Research** — Searches DuckDuckGo and scrapes top results
 2. **Script** — Generates viral-format scripts via Ollama (local LLM)
-3. **Voice** — Edge TTS (free) or F5-TTS voice cloning via FAL.ai
+3. **Voice** — Edge TTS (free/fast) or Qwen3-TTS local voice cloning (zero-shot, GPU)
 4. **Video** — Generates talking-head video via FAL.ai API (Kling 1.6 / Wan 2.1 / MiniMax)
 5. **Edit** — FFmpeg compositing with karaoke-style captions
 
@@ -60,8 +60,11 @@ python main.py --serve                             # Start web UI
 | `OLLAMA_MODEL` | Ollama model for script writing | `llama3.2:1b` |
 | `EDGE_TTS_VOICE` | Microsoft Edge TTS voice | `en-US-ChristopherNeural` |
 | `VIDEO_GEN_MODEL` | Video model: `kling-1.6`, `wan`, `minimax` | `kling-1.6` |
-| `VOICE_CLONING` | Enable F5-TTS voice cloning | `false` |
-| `AVATAR_PHOTO_PATH` | Path to avatar image | `assets/my_photo.png` |
+| `VOICE_CLONING` | Enable local Qwen3-TTS voice cloning | `false` |
+| `EDGE_TTS_VOICE` | Microsoft Edge TTS voice (fallback) | `en-US-ChristopherNeural` |
+| `QWEN_TTS_MODEL` | HuggingFace model ID for voice cloning | `Qwen/Qwen3-TTS-12Hz-1.7B-Base` |
+| `QWEN_TTS_DEVICE` | Torch device for Qwen3-TTS | `cuda:0` |
+| `VOICE_CLONE_REF_TEXT` | Transcript of your reference audio | `` (x-vector mode) |
 
 ## Project Structure
 
