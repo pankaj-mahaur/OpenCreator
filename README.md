@@ -2,7 +2,7 @@
 
 Automated AI video content pipeline — from topic to finished reel, running mostly locally.
 
-**Research → Script → Voice → Video → Edit → Publish**
+**Research → Script → Voice Clone → Video → Edit**
 
 ---
 
@@ -10,63 +10,61 @@ Automated AI video content pipeline — from topic to finished reel, running mos
 
 ```mermaid
 flowchart TD
-    A([🗣️ User: Topic]) --> B
+    A([🗣️ User enters Topic]) --> B
 
     subgraph PIPELINE ["🔄 Orchestrator Pipeline"]
-        B["🔍 Research\nresearcher.py\nDuckDuckGo + web scrape"] --> C
-        C["📝 Script\nscriptwriter.py\nOllama / OpenAI LLM"] --> D
-        D["🎙️ Voice\nvoice_cloner.py\nQwen3-TTS 1.7B (local GPU)\nor Edge TTS fallback"] --> E
-        E["🎬 Video Gen\nvideo_generator.py\nFAL.ai API\nKling 1.6 / Wan 2.1 / MiniMax"] --> F
-        F["✂️ Edit\nvideo_editor.py\nFFmpeg + karaoke captions"]
+        direction TB
+        B["🔍 Research<br/><code>researcher.py</code><br/>DuckDuckGo + Crawl4AI"] --> C
+        C["📝 Script<br/><code>scriptwriter.py</code><br/>Ollama / OpenAI LLM"] --> D
+        D["🎙️ Voice<br/><code>voice_cloner.py</code><br/>Qwen3-TTS 1.7B local GPU<br/>or Edge TTS fallback"] --> E
+        E["🎬 Video Gen<br/><code>video_generator.py</code><br/>FAL.ai API<br/>Kling 1.6 / Wan / MiniMax"] --> F
+        F["✂️ Edit<br/><code>video_editor.py</code><br/>FFmpeg + karaoke captions"]
     end
 
-    F --> G([📁 final.mp4\n+ state.json])
-    G --> H{dry_run?}
-    H -- Yes --> I([✅ Done — manual review])
-    H -- No --> J["📱 Publish\ninstagram_publisher.py\nInstagrapi stealth upload"]
+    F --> G([📁 final.mp4])
+    G --> H{Publish?}
+    H -- "dry_run=true" --> I([✅ Review in Web UI])
+    H -- "dry_run=false" --> J["📱 Instagram<br/><code>instagram_publisher.py</code><br/>Instagrapi stealth"]
     J --> K([🚀 Live on Instagram])
 
     style D fill:#4f46e5,color:#fff
-    style J fill:#e84393,color:#fff,stroke-dasharray: 5 5
+    style B fill:#1e3a5f,color:#fff
 ```
 
-> **Purple** = just implemented this session · **Dashed pink** = module exists, not yet connected to pipeline
+### Data Flow Detail
 
----
+```mermaid
+flowchart LR
+    subgraph INPUT
+        Topic["Topic string"]
+        Photo["Avatar photo"]
+        Voice["Voice sample .wav"]
+    end
 
-## What It Does
+    subgraph RESEARCH
+        DDG["DuckDuckGo Search"] --> URLs
+        URLs --> Crawl4AI["Crawl4AI Scraper"]
+        Crawl4AI --> Markdown["Clean Markdown"]
+    end
 
-| Step | Module | Status |
-|---|---|---|
-| 🔍 Research | `researcher.py` — DuckDuckGo + web scrape | ✅ Working |
-| 📝 Script | `scriptwriter.py` — Ollama / OpenAI | ✅ Working |
-| 🎙️ Voice | `voice_cloner.py` — **Qwen3-TTS 1.7B local** + Edge TTS fallback | ✅ Working |
-| 🎬 Video Gen | `video_generator.py` — FAL.ai (Kling / Wan / MiniMax) | ✅ Working |
-| ✂️ Edit | `video_editor.py` — FFmpeg + ASS captions | ✅ Working |
-| 🌐 Web UI | `dashboard/app.py` — Flask dark-theme UI | ✅ Working |
-| 📱 Publish | `instagram_publisher.py` — Instagrapi stealth | ⚠️ Module ready, not wired up |
-| ☁️ Upload | `uploader.py` — Cloudflare R2 (S3) | ⚠️ Module ready, not wired up |
+    subgraph GENERATION
+        Markdown --> LLM["Ollama LLM"]
+        LLM --> Script["Script + Caption + Hashtags"]
+        Script --> TTS["Qwen3-TTS"]
+        Voice --> TTS
+        TTS --> Audio["voice.wav"]
+        Photo --> VideoAPI["FAL.ai Video API"]
+        VideoAPI --> RawVideo["generated.mp4"]
+    end
 
----
+    subgraph POST
+        Audio --> FFmpeg
+        RawVideo --> FFmpeg
+        FFmpeg --> Final["final.mp4"]
+    end
 
-## Roadmap — What's Left
-
-### 🔴 High Priority
-- [ ] **Wire up Instagram publishing** — `instagram_publisher.py` exists and works in isolation, just needs to be called at end of `orchestrator.py` when `dry_run=False`
-- [ ] **End-to-end test** — run a full topic → final.mp4 → Instagram publish cycle
-
-### 🟡 Medium Priority
-- [ ] **B-roll / stock footage** — `PEXELS_API_KEY` is in config, needs a `broll.py` module + editor integration
-- [ ] **Scheduler / automation** — cron or APScheduler to post on a schedule (e.g. daily at 9am)
-- [ ] **Web UI publish button** — trigger Instagram publish directly from the web UI after review
-- [ ] **Cloudflare R2 integration** — wire up `uploader.py` for video hosting/backup
-
-### 🟢 Nice to Have
-- [ ] **TikTok / YouTube Shorts publishing** — new publisher modules
-- [ ] **Batch mode** — run multiple topics in sequence overnight
-- [ ] **Script editing in Web UI** — let user tweak the script before voice is generated
-- [ ] **Voice preview in Web UI** — play generated audio before committing to video
-- [ ] **Multi-language support** — Qwen3-TTS supports 10 languages natively
+    Topic --> DDG
+```
 
 ---
 
@@ -80,7 +78,7 @@ pip install -r requirements.txt
 
 # 2. Configure
 cp .env.example .env
-# Edit .env — add FAL_API_KEY, set VOICE_CLONING=true for voice cloning
+# Edit .env — add FAL_API_KEY, set VOICE_CLONING=true
 
 # 3. Setup AI Scraper
 python -m playwright install chromium
@@ -108,28 +106,25 @@ python main.py --serve
 
 ## Voice Cloning Setup
 
-OpenCreator uses **Qwen3-TTS-12Hz-1.7B-Base** for zero-shot voice cloning, running fully locally on your GPU.
+Uses **Qwen3-TTS-12Hz-1.7B-Base** for zero-shot voice cloning, fully local on GPU.
 
 ### 1. Record your voice sample
-Record yourself speaking for **10–20 seconds** of clear audio.
-Save it to: `voice_samples/my_voice.wav`
+Record **10–20 seconds** of clear speech → save to `voice_samples/my_voice.wav`
 
-### 2. Enable cloning in `.env`
+### 2. Enable in `.env`
 ```env
 VOICE_CLONING=true
 QWEN_TTS_MODEL=Qwen/Qwen3-TTS-12Hz-1.7B-Base
 QWEN_TTS_DEVICE=cuda:0
 
-# Paste the exact words you spoke — enables ICL mode for best quality
+# Optional — paste exact words from your recording for best quality
 VOICE_CLONE_REF_TEXT=Your exact words here
 ```
 
-### 3. First run downloads the model (~3.5 GB, cached after that)
+### 3. Test
 ```bash
-python _test_qwen_tts.py  # Quick smoke test
+python tests/test_qwen_tts.py
 ```
-
-> Without `VOICE_CLONE_REF_TEXT` the model uses x-vector mode (works, slightly less accurate). Adding the transcript unlocks best quality.
 
 ---
 
@@ -170,7 +165,7 @@ python main.py --serve                             # Start web UI
 | `VIDEO_GEN_MODEL` | `kling-1.6`, `wan`, `minimax` | `kling-1.6` |
 | `AVATAR_PHOTO_PATH` | Avatar image path | `assets/my_photo.png` |
 
-### Publish (optional)
+### Publish
 | Variable | Description |
 |---|---|
 | `IG_USERNAME` | Instagram username |
@@ -181,27 +176,58 @@ python main.py --serve                             # Start web UI
 ## Project Structure
 
 ```
-├── main.py                  # CLI entry point
-├── config.py                # Central configuration
-├── orchestrator.py          # Pipeline coordinator
-├── modules/
-│   ├── researcher.py        # DuckDuckGo research + scraping
-│   ├── scriptwriter.py      # Ollama/OpenAI script generation
-│   ├── voice_cloner.py      # Qwen3-TTS (local GPU) + Edge TTS fallback
-│   ├── video_generator.py   # FAL.ai video API (Kling / Wan / MiniMax)
-│   ├── video_editor.py      # FFmpeg compositing + ASS captions
-│   ├── instagram_publisher.py  # Instagrapi stealth publisher (not wired)
-│   └── uploader.py          # Cloudflare R2 uploader (not wired)
-├── dashboard/
-│   ├── app.py               # Flask web backend
+OpenCreator/
+├── main.py                     # CLI entry point + web server launcher
+├── config.py                   # Central configuration (loads .env)
+├── orchestrator.py             # Pipeline coordinator (5 sequential steps)
+├── requirements.txt            # Python dependencies
+├── .env.example                # Config template
+│
+├── modules/                    # Core pipeline modules
+│   ├── researcher.py           #   DuckDuckGo search + Crawl4AI scraping
+│   ├── scriptwriter.py         #   Ollama/OpenAI script generation
+│   ├── voice_cloner.py         #   Qwen3-TTS local cloning + Edge TTS fallback
+│   ├── video_generator.py      #   FAL.ai video API (Kling / Wan / MiniMax)
+│   ├── video_editor.py         #   FFmpeg compositing + ASS karaoke captions
+│   ├── instagram_publisher.py  #   Instagrapi stealth publisher
+│   ├── uploader.py             #   Cloudflare R2 upload
+│   └── gpu_manager.py          #   VRAM management utilities
+│
+├── dashboard/                  # Web UI
+│   ├── app.py                  #   Flask backend + REST API
+│   ├── static/
+│   │   └── style.css           #   Glassmorphism dark theme
 │   └── templates/
-│       └── index.html       # Dark-theme web UI
-├── voice_samples/
-│   └── my_voice.wav         # Your reference audio for cloning
-├── assets/
-│   └── my_photo.png         # Avatar photo for video gen
-└── .env.example             # Config template
+│       └── index.html          #   Premium UI with live progress
+│
+├── tests/                      # Test scripts
+│   └── test_qwen_tts.py        #   Voice cloning smoke test
+│
+├── assets/                     # Static assets
+│   └── my_photo.png            #   Avatar photo for video gen
+│
+├── voice_samples/              # Voice reference audio
+│   └── my_voice.wav            #   Your voice for cloning
+│
+└── output/                     # Generated runs (auto-created)
+    └── <run_id>/
+        ├── state.json          #   Pipeline state
+        ├── voice.mp3           #   Generated speech
+        ├── generated.mp4       #   Raw video from API
+        └── final.mp4           #   Final video with captions
 ```
+
+---
+
+## Web UI
+
+Start with `python main.py --serve`, then open **http://127.0.0.1:8501**
+
+Features:
+- Enter topic & generate videos
+- Real-time pipeline progress with step indicators
+- Video preview + download
+- Run history browser
 
 ---
 
