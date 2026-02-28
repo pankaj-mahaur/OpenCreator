@@ -9,6 +9,10 @@ ollama>=0.3
 # Voice
 edge-tts>=6.1
 
+# Local Qwen3-TTS voice cloning
+qwen-tts
+soundfile
+
 # Captions
 faster-whisper>=1.0
 
