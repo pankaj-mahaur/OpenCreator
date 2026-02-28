@@ -1,5 +1,5 @@
 """
-main.py — CLI + Web UI entry point for Social Media Content Automation.
+main.py — CLI + Web UI entry point for OpenCreator.
 
 Usage:
     python main.py --topic "Latest AI news"              # Full pipeline
@@ -38,10 +38,10 @@ def show_banner():
     """Display the agent banner."""
     banner = """
 [bold cyan]╔══════════════════════════════════════════════╗
-║    🎬 Social Media Content Automation        ║
+║    🎬 OpenCreator                             ║
 ║    ─────────────────────────────────────      ║
 ║    Research → Script → Voice → Video → Edit   ║
-║    API-Powered • Fast • High Quality          ║
+║    Local AI • Voice Clone • Open Source        ║
 ╚══════════════════════════════════════════════╝[/bold cyan]
 """
     console.print(banner)
@@ -138,7 +138,7 @@ def start_web_ui(args):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="🎬 Social Media Content Automation",
+        description="🎬 OpenCreator — AI Video Content Pipeline",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:

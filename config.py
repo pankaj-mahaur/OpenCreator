@@ -1,5 +1,5 @@
 """
-config.py — Central configuration for the Social Media Content Automation pipeline.
+config.py — Central configuration for the OpenCreator pipeline.
 
 Loads all settings from .env, provides defaults, and exposes
 typed configuration to every module.
@@ -30,9 +30,18 @@ OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o")
 
-# ── Voice (Edge TTS — free, zero setup) ───────────────────
-VOICE_MODEL_TYPE = os.getenv("VOICE_MODEL_TYPE", "edge")  # "edge" only for now
-EDGE_TTS_VOICE = os.getenv("EDGE_TTS_VOICE", "en-US-ChristopherNeural")  # Male voice
+# ── Voice ──────────────────────────────────────────────────
+# Set VOICE_CLONING=true to enable local Qwen3-TTS voice cloning (requires CUDA GPU)
+# Falls back to Edge TTS if cloning is disabled or no GPU is available
+VOICE_CLONING = os.getenv("VOICE_CLONING", "false").lower() == "true"
+EDGE_TTS_VOICE = os.getenv("EDGE_TTS_VOICE", "en-US-ChristopherNeural")
+
+# ── Qwen3 TTS (local voice cloning) ───────────────────────
+QWEN_TTS_MODEL = os.getenv("QWEN_TTS_MODEL", "Qwen/Qwen3-TTS-12Hz-1.7B-Base")
+QWEN_TTS_DEVICE = os.getenv("QWEN_TTS_DEVICE", "cuda:0")  # Use "cpu" if no GPU
+# Transcript of your reference audio — improves clone quality significantly.
+# Leave blank to use x_vector_only mode (no transcript, slightly lower quality).
+VOICE_CLONE_REF_TEXT = os.getenv("VOICE_CLONE_REF_TEXT", "")
 
 # ── Video Generation ───────────────────────────────────────
 # Provider: "google" (Veo 3.1, primary) or "kling" (fallback)
