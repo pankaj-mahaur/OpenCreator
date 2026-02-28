@@ -176,7 +176,7 @@ class Orchestrator:
                 "natural facial expressions, engaging presentation style."
             )
 
-            generator = VideoGenerator(model=model)
+            generator = VideoGenerator(provider=model)
             generated_video = run_dir / "generated.mp4"
 
             def video_progress(status, progress):

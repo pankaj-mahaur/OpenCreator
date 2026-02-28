@@ -34,10 +34,20 @@ OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o")
 VOICE_MODEL_TYPE = os.getenv("VOICE_MODEL_TYPE", "edge")  # "edge" only for now
 EDGE_TTS_VOICE = os.getenv("EDGE_TTS_VOICE", "en-US-ChristopherNeural")  # Male voice
 
-# ── Video Generation (FAL.ai API) ─────────────────────────
-FAL_API_KEY = os.getenv("FAL_API_KEY", "")
-VIDEO_GEN_MODEL = os.getenv("VIDEO_GEN_MODEL", "kling-1.6")  # kling-1.6, wan, minimax
+# ── Video Generation ───────────────────────────────────────
+# Provider: "google" (Veo 3.1, primary) or "kling" (fallback)
+VIDEO_GEN_PROVIDER = os.getenv("VIDEO_GEN_PROVIDER", "google")
 AVATAR_PHOTO_PATH = Path(os.getenv("AVATAR_PHOTO_PATH", "assets/my_photo.png"))
+
+# Google Veo 3.1
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY", "")
+
+# Kling AI (fallback)
+KLING_ACCESS_KEY = os.getenv("KLING_ACCESS_KEY", "")
+KLING_SECRET_KEY = os.getenv("KLING_SECRET_KEY", "")
+
+# Legacy FAL.ai (deprecated, kept for backward compat)
+FAL_API_KEY = os.getenv("FAL_API_KEY", "")
 
 # ── B-Roll ─────────────────────────────────────────────────
 PEXELS_API_KEY = os.getenv("PEXELS_API_KEY", "")
