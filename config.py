@@ -1,5 +1,5 @@
 """
-config.py — Central configuration for the Social Media Content Automation pipeline.
+config.py — Central configuration for the OpenCreator pipeline.
 
 Loads all settings from .env, provides defaults, and exposes
 typed configuration to every module.

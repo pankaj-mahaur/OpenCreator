@@ -50,36 +50,10 @@ def create_app() -> Flask:
         if not topic:
             return jsonify({"error": "Topic is required"}), 400
 
-        # Run pipeline in background thread
-        def run_in_background():
-            state = orch.run(
-                topic=topic,
-                dry_run=True,
-                model=model,
-                voice=voice,
-                progress_callback=lambda step, status, progress: _update_job(state.id, step, status, progress),
-            )
-            with _job_lock:
-                _running_jobs[state.id] = state
-
-        # Create initial state to return ID immediately
         import uuid
-        from datetime import datetime
 
         temp_id = uuid.uuid4().hex[:12]
 
-        def run_with_tracking():
-            state = orch.run(
-                topic=topic,
-                dry_run=True,
-                model=model,
-                voice=voice,
-            )
-            with _job_lock:
-                _running_jobs[state.id] = state
-
-        # We need to get the state ID before the thread starts
-        # So we create the orchestrator run directly
         state = PipelineState(
             id=temp_id,
             topic=topic,
@@ -96,7 +70,6 @@ def create_app() -> Flask:
                 result = orch.run(topic=topic, dry_run=True, model=model, voice=voice)
                 with _job_lock:
                     _running_jobs[temp_id] = result
-                    # Also keep old ID pointing to result
                     if result.id != temp_id:
                         _running_jobs[result.id] = result
             except Exception as e:
