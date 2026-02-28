@@ -82,7 +82,10 @@ pip install -r requirements.txt
 cp .env.example .env
 # Edit .env — add FAL_API_KEY, set VOICE_CLONING=true for voice cloning
 
-# 3. Run
+# 3. Setup AI Scraper
+python -m playwright install chromium
+
+# 4. Run
 python main.py --topic "Why AI will change everything"
 
 # Or start the Web UI
