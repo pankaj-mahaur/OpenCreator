@@ -1,13 +1,18 @@
 """
-video_generator.py — Video generation via Google Veo 3.1 (primary) + Kling AI (fallback).
+video_generator.py — Video generation with three providers:
 
-Generates talking-head / avatar videos from an image + prompt.
-Google Veo 3.1 is used by default (free credits via AI Studio).
-Kling AI direct API is the fallback (JWT auth).
+  1. LivePortrait (local, free, GPU-driven — preferred when weights are present)
+  2. Google Veo 3.1  (cloud, primary API fallback)
+  3. Kling AI        (cloud, final fallback via JWT REST API)
+
+Generates talking-head / avatar videos from an avatar image + audio file.
 """
 
 import base64
 import logging
+import shutil
+import subprocess
+import sys
 import time
 from pathlib import Path
 from typing import Optional
@@ -38,39 +43,66 @@ class VideoGenerator:
         image_path: Path,
         prompt: str = "A person talking naturally to the camera",
         output_path: Optional[Path] = None,
+        audio_path: Optional[Path] = None,
         progress_callback=None,
     ) -> Path:
-        """Generate video with auto-fallback between providers."""
+        """
+        Generate video with auto-fallback between providers.
+
+        Provider priority:
+          liveportrait → google → kling
+
+        Args:
+            image_path:        Avatar image (PNG/JPG).
+            prompt:            Text prompt describing the desired video.
+            output_path:       Destination MP4 path (auto-generated if None).
+            audio_path:        Path to an audio file (.wav/.mp3) used by
+                               LivePortrait to drive lip-sync. Required when
+                               provider is 'liveportrait'.
+            progress_callback: Optional callable(msg: str, pct: float).
+        """
         if output_path is None:
             output_path = config.OUTPUT_DIR / "generated_video.mp4"
 
         output_path = Path(output_path)
         output_path.parent.mkdir(parents=True, exist_ok=True)
 
-        # Try primary provider
-        try:
-            if self.provider == "google":
-                return self._generate_google(image_path, prompt, output_path, progress_callback)
-            elif self.provider == "kling":
-                return self._generate_kling(image_path, prompt, output_path, progress_callback)
-            else:
-                logger.warning(f"Unknown provider '{self.provider}', trying google")
-                return self._generate_google(image_path, prompt, output_path, progress_callback)
+        # Build ordered list of providers to try
+        if self.provider == "liveportrait":
+            provider_chain = ["liveportrait", "google", "kling"]
+        elif self.provider == "google":
+            provider_chain = ["google", "kling"]
+        elif self.provider == "kling":
+            provider_chain = ["kling", "google"]
+        else:
+            logger.warning(f"Unknown provider '{self.provider}', defaulting to google → kling")
+            provider_chain = ["google", "kling"]
 
-        except Exception as e:
-            logger.warning(f"⚠️ {self.provider} failed: {e}")
-
-            # Fallback
-            fallback = "kling" if self.provider == "google" else "google"
-            logger.info(f"🔄 Falling back to {fallback}...")
-
+        last_error: Optional[Exception] = None
+        for provider in provider_chain:
             try:
-                if fallback == "google":
-                    return self._generate_google(image_path, prompt, output_path, progress_callback)
-                else:
-                    return self._generate_kling(image_path, prompt, output_path, progress_callback)
-            except Exception as e2:
-                raise RuntimeError(f"All video providers failed. Primary: {e}, Fallback: {e2}")
+                logger.info(f"🎬 Trying provider: {provider}")
+                if provider == "liveportrait":
+                    return self._generate_liveportrait(
+                        image_path, audio_path, output_path, progress_callback
+                    )
+                elif provider == "google":
+                    return self._generate_google(
+                        image_path, prompt, output_path, progress_callback
+                    )
+                elif provider == "kling":
+                    return self._generate_kling(
+                        image_path, prompt, output_path, progress_callback
+                    )
+            except Exception as e:
+                logger.warning(f"⚠️ {provider} failed: {e}")
+                last_error = e
+                if provider != provider_chain[-1]:
+                    logger.info(f"🔄 Trying next provider...")
+
+        raise RuntimeError(
+            f"All video providers failed. Last error: {last_error}"
+        )
 
     # ── Google Veo 3.1 ──────────────────────────────────────
 
@@ -114,7 +146,6 @@ class VideoGenerator:
             image=image,
             config=types.GenerateVideosConfig(
                 aspect_ratio="9:16",          # Portrait for Reels
-                person_generation="allow_all",
             ),
         )
 
@@ -321,21 +352,208 @@ class VideoGenerator:
 
         return output_path
 
+    # ── LivePortrait (local) ─────────────────────────────────
+
+    def _generate_liveportrait(
+        self,
+        image_path: Path,
+        audio_path: Optional[Path],
+        output_path: Path,
+        progress_callback=None,
+    ) -> Path:
+        """
+        Generate a talking-head video locally using LivePortrait.
+
+        LivePortrait animates a portrait image using a driving video.  Because
+        it expects a *video* driver (not a raw audio file), we first convert
+        the audio into a silent black-frame video that carries the audio track,
+        then run LivePortrait inference so it lip-syncs from the audio.
+
+        Weight location  : third_party/LivePortrait/pretrained_weights/
+        Model page       : https://github.com/KwaiVGI/LivePortrait
+        VRAM requirement : ~4-5 GB on RTX 3050 6 GB with --flag_do_crop
+        """
+        lp_root = Path(__file__).parent.parent / "third_party" / "LivePortrait"
+        inference_script = lp_root / "inference.py"
+
+        if not inference_script.exists():
+            raise FileNotFoundError(
+                f"LivePortrait inference script not found at {inference_script}. "
+                "Make sure you have cloned the repo into third_party/LivePortrait."
+            )
+
+        # Verify pretrained weights exist
+        weights_dir = lp_root / "pretrained_weights"
+        if not any(weights_dir.iterdir()) if weights_dir.exists() else True:
+            raise FileNotFoundError(
+                f"LivePortrait pretrained weights not found in {weights_dir}. "
+                "Download them from https://huggingface.co/KwaiVGI/LivePortrait "
+                "and place them in third_party/LivePortrait/pretrained_weights/."
+            )
+
+        if not shutil.which("ffmpeg"):
+            raise EnvironmentError(
+                "ffmpeg not found in PATH. Install FFmpeg and ensure it is on PATH."
+            )
+
+        # ── Step 1: Build a driving video from audio ─────────
+        # LivePortrait needs a driving *video*. We create a black-frame video
+        # with the audio embedded so the audio drive passes through.
+        driving_video = output_path.with_suffix(".driving.mp4")
+        if audio_path and Path(audio_path).exists():
+            logger.info("   🎵 Creating driving video from audio...")
+            if progress_callback:
+                progress_callback("Preparing driving video from audio...", 0.05)
+
+            # Detect audio duration
+            probe = subprocess.run(
+                [
+                    "ffprobe", "-v", "error",
+                    "-show_entries", "format=duration",
+                    "-of", "default=noprint_wrappers=1:nokey=1",
+                    str(audio_path),
+                ],
+                capture_output=True, text=True, check=True,
+            )
+            duration = float(probe.stdout.strip())
+
+            # Create black-frame video with audio
+            subprocess.run(
+                [
+                    "ffmpeg", "-y",
+                    "-f", "lavfi",
+                    "-i", f"color=black:size=512x512:rate=25:duration={duration}",
+                    "-i", str(audio_path),
+                    "-c:v", "libx264", "-c:a", "aac",
+                    "-shortest",
+                    str(driving_video),
+                ],
+                check=True, capture_output=True,
+            )
+            logger.info(f"   ✅ Driving video created ({duration:.1f}s)")
+        else:
+            logger.warning(
+                "No audio_path provided for LivePortrait — using a 5-second silent driving video."
+            )
+            if progress_callback:
+                progress_callback("Creating silent driving video...", 0.05)
+            subprocess.run(
+                [
+                    "ffmpeg", "-y",
+                    "-f", "lavfi",
+                    "-i", "color=black:size=512x512:rate=25:duration=5",
+                    "-c:v", "libx264",
+                    str(driving_video),
+                ],
+                check=True, capture_output=True,
+            )
+
+        # ── Step 2: Run LivePortrait inference ───────────────
+        lp_output_dir = output_path.parent / "liveportrait_out"
+        lp_output_dir.mkdir(parents=True, exist_ok=True)
+
+        logger.info("   🎨 Running LivePortrait inference (this may take a minute)...")
+        if progress_callback:
+            progress_callback("Running LivePortrait — generating video...", 0.2)
+
+        cmd = [
+            sys.executable,              # same Python env
+            str(inference_script),
+            "--source", str(image_path),
+            "--driving", str(driving_video),
+            "--output-dir", str(lp_output_dir),
+            "--flag-do-crop",            # crop face region — reduces VRAM
+            "--flag-pasteback",          # paste animated face back onto original bg
+        ]
+
+        logger.info(f"   Running: {' '.join(cmd)}")
+        result = subprocess.run(
+            cmd,
+            cwd=str(lp_root),            # must run from LP root so its src/ imports work
+            capture_output=True,
+            text=True,
+        )
+
+        if result.returncode != 0:
+            logger.error(f"LivePortrait stderr:\n{result.stderr[-2000:]}")
+            raise RuntimeError(
+                f"LivePortrait inference failed (exit {result.returncode}).\n"
+                f"Stderr (last 2000 chars):\n{result.stderr[-2000:]}"
+            )
+
+        logger.info(f"   LivePortrait stdout:\n{result.stdout[-500:]}")
+
+        if progress_callback:
+            progress_callback("Merging audio into final video...", 0.85)
+
+        # ── Step 3: Find LP output and mux in the audio ──────
+        # LivePortrait writes <driving_stem>_<source_stem>.mp4 into output-dir
+        lp_files = list(lp_output_dir.glob("*.mp4"))
+        if not lp_files:
+            raise RuntimeError(
+                f"LivePortrait did not produce any .mp4 in {lp_output_dir}. "
+                f"Stdout:\n{result.stdout[-500:]}"
+            )
+        lp_video = sorted(lp_files)[-1]   # take the latest
+
+        if audio_path and Path(audio_path).exists():
+            # Mux the original audio into the LP video
+            subprocess.run(
+                [
+                    "ffmpeg", "-y",
+                    "-i", str(lp_video),
+                    "-i", str(audio_path),
+                    "-c:v", "copy", "-c:a", "aac",
+                    "-map", "0:v:0", "-map", "1:a:0",
+                    "-shortest",
+                    str(output_path),
+                ],
+                check=True, capture_output=True,
+            )
+        else:
+            shutil.copy2(lp_video, output_path)
+
+        # Cleanup temp files
+        try:
+            driving_video.unlink(missing_ok=True)
+        except Exception:
+            pass
+
+        logger.info(f"   ✅ LivePortrait video saved: {output_path}")
+        if progress_callback:
+            progress_callback("Video ready!", 1.0)
+
+        return output_path
+
     # ── Utilities ───────────────────────────────────────────
 
     @staticmethod
     def list_models() -> dict:
         """List available video generation providers."""
         return {
-            "google": "Google Veo 3.1 (Primary)",
-            "kling": "Kling AI (Fallback)",
+            "liveportrait": "LivePortrait (local GPU - free, no API key needed)",
+            "google": "Google Veo 3.1 (cloud - primary API)",
+            "kling": "Kling AI (cloud - fallback)",
         }
 
 
-# ── Standalone test ────────────────────────────────────────
+# -- Standalone test --
 if __name__ == "__main__":
+    import sys as _sys
+    # Allow running directly: python modules/video_generator.py
+    _sys.path.insert(0, str(Path(__file__).parent.parent))
+    import config  # re-import with corrected path
     logging.basicConfig(level=logging.INFO)
-    print("Available providers:", VideoGenerator.list_models())
-    print(f"Current provider: {config.VIDEO_GEN_PROVIDER}")
-    print(f"Google API key set: {'Yes' if config.GOOGLE_API_KEY else 'No'}")
-    print(f"Kling keys set: {'Yes' if config.KLING_ACCESS_KEY else 'No'}")
+    print("Available providers:")
+    for k, v in VideoGenerator.list_models().items():
+        print(f"  {k:15s}  {v}")
+    print()
+    print(f"Current provider   : {config.VIDEO_GEN_PROVIDER}")
+    print(f"Google API key set : {'Yes' if config.GOOGLE_API_KEY else 'No'}")
+    print(f"Kling keys set     : {'Yes' if config.KLING_ACCESS_KEY else 'No'}")
+
+    lp_weights = (
+        Path(__file__).parent.parent / "third_party" / "LivePortrait" / "pretrained_weights"
+    )
+    lp_weights_ok = lp_weights.exists() and any(lp_weights.iterdir())
+    print(f"LivePortrait weights: {'[OK]' if lp_weights_ok else '[MISSING] -- download from https://huggingface.co/KwaiVGI/LivePortrait'}")

@@ -44,8 +44,8 @@ QWEN_TTS_DEVICE = os.getenv("QWEN_TTS_DEVICE", "cuda:0")  # Use "cpu" if no GPU
 VOICE_CLONE_REF_TEXT = os.getenv("VOICE_CLONE_REF_TEXT", "")
 
 # ── Video Generation ───────────────────────────────────────
-# Provider: "google" (Veo 3.1, primary) or "kling" (fallback)
-VIDEO_GEN_PROVIDER = os.getenv("VIDEO_GEN_PROVIDER", "google")
+# Provider: "liveportrait" (local GPU, free) | "google" (Veo 3.1) | "kling"
+VIDEO_GEN_PROVIDER = os.getenv("VIDEO_GEN_PROVIDER", "liveportrait")
 AVATAR_PHOTO_PATH = Path(os.getenv("AVATAR_PHOTO_PATH", "assets/my_photo.png"))
 
 # Google Veo 3.1
