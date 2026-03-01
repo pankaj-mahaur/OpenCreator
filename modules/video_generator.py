@@ -122,24 +122,57 @@ class VideoGenerator:
         if progress_callback:
             progress_callback("Video generating (this takes a few minutes)...", 0.3)
 
-        # Poll until done
+        # Poll until done — with Rich progress bar
         max_wait = 600  # 10 minutes
         elapsed = 0
         poll_interval = 10
 
-        while not operation.done:
-            time.sleep(poll_interval)
-            elapsed += poll_interval
-            operation = client.operations.get(operation)
+        try:
+            from rich.live import Live
+            from rich.progress import Progress, SpinnerColumn, BarColumn, TextColumn, TimeElapsedColumn
 
-            if progress_callback:
-                progress = min(0.3 + (elapsed / max_wait) * 0.55, 0.85)
-                progress_callback(f"Generating... ({elapsed}s)", progress)
+            progress_bar = Progress(
+                SpinnerColumn("dots"),
+                TextColumn("[magenta]Video Gen (Veo 3.1)[/magenta]"),
+                BarColumn(bar_width=40),
+                TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
+                TimeElapsedColumn(),
+                TextColumn("[dim]~3-5 min typical[/dim]"),
+            )
+            task = progress_bar.add_task("veo", total=max_wait)
 
-            logger.info(f"   ⏳ Polling... ({elapsed}s elapsed)")
+            with Live(progress_bar, refresh_per_second=2):
+                while not operation.done:
+                    time.sleep(poll_interval)
+                    elapsed += poll_interval
+                    operation = client.operations.get(operation)
 
-            if elapsed >= max_wait:
-                raise TimeoutError(f"Google Veo timed out after {max_wait}s")
+                    pct = min(elapsed, int(max_wait * 0.95))
+                    progress_bar.update(task, completed=pct)
+
+                    if progress_callback:
+                        p = min(0.3 + (elapsed / max_wait) * 0.55, 0.85)
+                        progress_callback(f"Generating... ({elapsed}s)", p)
+
+                    if elapsed >= max_wait:
+                        raise TimeoutError(f"Google Veo timed out after {max_wait}s")
+
+                progress_bar.update(task, completed=max_wait)
+
+        except ImportError:
+            # Fallback without Rich
+            while not operation.done:
+                time.sleep(poll_interval)
+                elapsed += poll_interval
+                operation = client.operations.get(operation)
+                logger.info(f"   ⏳ Polling... ({elapsed}s elapsed)")
+
+                if progress_callback:
+                    p = min(0.3 + (elapsed / max_wait) * 0.55, 0.85)
+                    progress_callback(f"Generating... ({elapsed}s)", p)
+
+                if elapsed >= max_wait:
+                    raise TimeoutError(f"Google Veo timed out after {max_wait}s")
 
         # Download the generated video
         logger.info("   📥 Downloading video from Google...")
@@ -203,7 +236,7 @@ class VideoGenerator:
         api_base = "https://api.klingai.com/v1"
         create_payload = {
             "model_name": "kling-v1",
-            "image": f"data:{mime_type};base64,{image_b64}",
+            "image": image_b64,  # Kling expects raw base64 string without data: URL prefix
             "prompt": prompt,
             "cfg_scale": 0.5,
             "mode": "std",
