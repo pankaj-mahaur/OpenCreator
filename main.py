@@ -54,7 +54,7 @@ def run_pipeline(args):
     orch = Orchestrator()
 
     console.print(f"\n[green]Running pipeline for:[/green] {args.topic}")
-    console.print(f"[dim]Model: {args.model or config.VIDEO_GEN_MODEL}[/dim]")
+    console.print(f"[dim]Provider: {args.model or config.VIDEO_GEN_PROVIDER}[/dim]")
 
     state = orch.run(
         topic=args.topic,
@@ -150,8 +150,8 @@ Examples:
     )
 
     parser.add_argument("--topic", type=str, help="Content topic for the Reel")
-    parser.add_argument("--model", type=str, choices=["kling-1.6", "wan", "minimax"],
-                        help="Video generation model (default: kling-1.6)")
+    parser.add_argument("--model", type=str, choices=["google", "kling"],
+                        help="Video generation provider (default: google)")
     parser.add_argument("--voice", type=str, help="Edge TTS voice name")
     parser.add_argument("--dry-run", action="store_true",
                         help="Run pipeline without publishing")

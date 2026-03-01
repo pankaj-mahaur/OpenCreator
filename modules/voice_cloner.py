@@ -137,20 +137,77 @@ class VoiceCloner:
         return self._voice_clone_prompt
 
     def _synthesize_qwen_tts(self, text: str, output_path: Path, ref_audio: Path, language: str):
-        """Local voice cloning via Qwen3-TTS."""
+        """Local voice cloning via Qwen3-TTS with progress display."""
         import soundfile as sf
+        import threading
 
         model = self._load_qwen_model()
         clone_prompt = self._get_clone_prompt(ref_audio)
 
+        # Estimate time: ~0.5s per char on RTX 3050 with 1.7B model
+        est_seconds = max(30, int(len(text) * 0.5))
         logger.info(f"   🎬 Synthesizing with cloned voice ({language})...")
-        wavs, sr = model.generate_voice_clone(
-            text=text,
-            language=language,
-            voice_clone_prompt=clone_prompt,
-        )
+        logger.info(f"   ⏱️  Estimated time: ~{est_seconds // 60}m {est_seconds % 60}s for {len(text)} chars")
 
-        sf.write(str(output_path), wavs[0], sr)
+        # Run TTS in a thread so we can show progress
+        result = {"wavs": None, "sr": None, "error": None}
+
+        def tts_worker():
+            try:
+                wavs, sr = model.generate_voice_clone(
+                    text=text,
+                    language=language,
+                    voice_clone_prompt=clone_prompt,
+                )
+                result["wavs"] = wavs
+                result["sr"] = sr
+            except Exception as e:
+                result["error"] = e
+
+        thread = threading.Thread(target=tts_worker)
+        thread.start()
+
+        # Show progress while waiting
+        try:
+            from rich.live import Live
+            from rich.progress import Progress, SpinnerColumn, BarColumn, TextColumn, TimeElapsedColumn
+
+            progress = Progress(
+                SpinnerColumn("dots"),
+                TextColumn("[cyan]Voice Cloning[/cyan]"),
+                BarColumn(bar_width=40),
+                TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
+                TimeElapsedColumn(),
+                TextColumn(f"[dim]ETA ~{est_seconds // 60}m {est_seconds % 60}s[/dim]"),
+            )
+
+            task = progress.add_task("tts", total=est_seconds)
+
+            with Live(progress, refresh_per_second=2):
+                elapsed = 0
+                while thread.is_alive():
+                    thread.join(timeout=1.0)
+                    elapsed += 1
+                    # Cap at 95% until actually done
+                    pct = min(elapsed, int(est_seconds * 0.95))
+                    progress.update(task, completed=pct)
+
+                # Mark complete
+                progress.update(task, completed=est_seconds)
+
+        except ImportError:
+            # Fallback: simple waiting log
+            elapsed = 0
+            while thread.is_alive():
+                thread.join(timeout=10.0)
+                elapsed += 10
+                pct = min(95, int((elapsed / est_seconds) * 100))
+                logger.info(f"   ⏳ Voice cloning... {pct}% ({elapsed}s / ~{est_seconds}s)")
+
+        if result["error"]:
+            raise result["error"]
+
+        sf.write(str(output_path), result["wavs"][0], result["sr"])
         logger.info("   ✅ Qwen3-TTS voice cloning complete")
 
     # ── Edge TTS fallback ─────────────────────────────────────

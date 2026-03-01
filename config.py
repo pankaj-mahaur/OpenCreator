@@ -43,10 +43,20 @@ QWEN_TTS_DEVICE = os.getenv("QWEN_TTS_DEVICE", "cuda:0")  # Use "cpu" if no GPU
 # Leave blank to use x_vector_only mode (no transcript, slightly lower quality).
 VOICE_CLONE_REF_TEXT = os.getenv("VOICE_CLONE_REF_TEXT", "")
 
-# ── Video Generation (FAL.ai API) ─────────────────────────
-FAL_API_KEY = os.getenv("FAL_API_KEY", "")
-VIDEO_GEN_MODEL = os.getenv("VIDEO_GEN_MODEL", "kling-1.6")  # kling-1.6, wan, minimax
+# ── Video Generation ───────────────────────────────────────
+# Provider: "liveportrait" (local GPU, free) | "google" (Veo 3.1) | "kling"
+VIDEO_GEN_PROVIDER = os.getenv("VIDEO_GEN_PROVIDER", "liveportrait")
 AVATAR_PHOTO_PATH = Path(os.getenv("AVATAR_PHOTO_PATH", "assets/my_photo.png"))
+
+# Google Veo 3.1
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY", "")
+
+# Kling AI (fallback)
+KLING_ACCESS_KEY = os.getenv("KLING_ACCESS_KEY", "")
+KLING_SECRET_KEY = os.getenv("KLING_SECRET_KEY", "")
+
+# Legacy FAL.ai (deprecated, kept for backward compat)
+FAL_API_KEY = os.getenv("FAL_API_KEY", "")
 
 # ── B-Roll ─────────────────────────────────────────────────
 PEXELS_API_KEY = os.getenv("PEXELS_API_KEY", "")
